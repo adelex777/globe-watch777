@@ -1,0 +1,32 @@
+name: scheduled
+on:
+  schedule:
+    - cron: "0 0,5,11 * * *"
+  workflow_dispatch:
+concurrency:
+  group: globe-data
+  cancel-in-progress: false
+permissions:
+  contents: write
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install anthropic
+      - run: python scripts/update.py --mode scheduled
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      - name: Commit data
+        if: always()
+        run: |
+          git config user.name "globe-bot"
+          git config user.email "globe-bot@users.noreply.github.com"
+          git add data/data.json data/log.json
+          git diff --cached --quiet || (git commit -m "data: scheduled" && git pull --rebase && git push)
